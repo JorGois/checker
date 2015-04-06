@@ -25,20 +25,20 @@ Basic idea:
     - vmdk200
     
 - Sub Domain: notexist
-- Domain: pt
+- Domain: lan
 
 ```shell
-$ checker vmdk -o notexist -D pt -n 200 -e 2 -P 6969
+$ checker vmdk -o notexist -D lan -n 200 -e 2 -P 6969
 ```
 
 ### Output
 ```
 --------------------------------------------------------------------------------------
-	IP				HOST			STATE	22		8080	9101	9001	6969
-192.168.0.1	   vmdk001.notexit.pt	  UP   OPEN		OPEN	CLOSE	CLOSE	OPEN
+    IP			HOST		STATE	22	8080	9101	9001	6969
+192.168.0.1	   vmdk001.notexit.lan	  UP   OPEN	OPEN	CLOSE	CLOSE	OPEN
 ...
-192.168.0.200  vmdk200.notexit.pt	  UP   OPEN		OPEN	CLOSE	CLOSE	OPEN
+192.168.0.200      vmdk200.notexit.lan	  UP   OPEN 	OPEN	CLOSE	CLOSE	OPEN
 --------------------------------------------------------------------------------------
 Hosts not resolve: 0 	 Hosts Down: 0
-Host example: vmdk001.notexit.pt
+Host example: vmdk001.notexit.lan
 --------------------------------------------------------------------------------------
