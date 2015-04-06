@@ -1,0 +1,157 @@
+#!/usr/bin/perl
+#
+# author: Jorge Góis
+# version: 0.1
+# description: This will make a resume of list of nodes. You can insert
+# the generique name, sub domain, domain and a number of nodes. And I will give
+# informaction about the nodes and state.
+#
+# tests: DNS resolve, Ping, port check (22, 8080, ...)
+#
+# usage: checker <regular name> [args]
+#        [-n num] - Number of machines
+#        [-o value] - name of domain
+#        [-d] - Developer domain
+#        [-p] - Production domain
+#        [-P] - Port to check
+#        [-D domain] - Name of domain
+#        [-e num] - Number of digits ex(0): 1-10, ex(3): 0001-0010
+#                   Default 2 ex(2): 001-010
+#
+#example:
+#         checker node -p -n 4 -D isp -o pool1 -P 53\n\n
+#         checker www -o google -D com -n 10 -e 0";
+
+
+use Regexp::Common qw /net/;
+use Net::Ping;
+use IO::Socket;
+use Term::ANSIColor qw(:constants);
+use Getopt::Long qw(GetOptions);
+
+#Set by default
+my $dom = "com"; ##Domain
+my $secdom = "google"; ##Defautl secudanri domain
+my @ports = (22, 8080, 9101, 9001); ##Ports to check
+my $number = 6;
+my $ndigit = 2;
+
+#Dont touch
+my $p = Net::Ping->new();
+my $subdom;
+my $countdown = 0;
+my $countnotresolve = 0;
+my $digit;
+my $tmpport;
+my @ip;
+my @hosts;
+my @portStat = ($ssh,$http,$nineport);
+
+
+sub help {
+  print "Usage: checker <regular name> [args]
+  \t[-n num] - Number of machines
+  \t[-o value] - name of domain
+  \t[-d] - Developer domain
+  \t[-p] - Production domain
+  \t[-P] - Port to check
+  \t[-D domain] - Name of domain
+  \t[-e num] - Number of digits ex(0): 1-10, ex(3): 0001-0010
+  \t\t\t\tDefault 2 ex(2): 001-010
+  Example: checker node -p -n 4 -D isp -o pool1 -P 53\n\n
+  \tchecker www -o google -D com -n 10 -e 0";
+};
+
+print "Checke."; #Show progress
+
+  if ($ARGV[0] eq "") {
+    help;
+    exit 1;
+  } else {
+    $subdom = $ARGV[0];
+
+    GetOptions(
+    'from|n=s' => \$number,
+    'e=s' => \$ndigit,
+    'o=s' => \$secdom,
+    'h' => sub {help; exit 0;},
+    'P=s' => \$tmpport,
+    'D=s' => \$dom,
+    ) or die (help);
+
+  }
+
+  if ($tmpport != ""){
+    push @ports, $tmpport;
+  }
+
+  for (my $l = 0; $l < $ndigit; $l++){
+    $digit = $digit."0";
+  }
+
+for (my $i=1; $i < $number ; $i++) {
+  $hosts[$i] = $subdom . $digit . "$i.$secdom.$dom";
+
+  print "."; ##Show progress
+
+  $ping[$i] = "UP";
+  if (!($p->ping($hosts[$i], 2))){
+    #print "up";
+    $ping[$i] = "DOWN";
+  }
+  $ex = qx(host $hosts[$i]);
+
+  if ($ex =~ /($RE{net}{IPv4})/g) {
+    $ip[$i] = $1;
+    for (my $j=0; $j < @ports; $j++){
+      $socket = IO::Socket::INET->new(PeerAddr => $ip[$i] , PeerPort => $ports[$j] , Proto => 'tcp' , Timeout => 1);
+      print "."; #Show progress
+        if( $socket ){
+          $portStat[$i]->[$j] = "OPEN";
+        } else {
+          $portStat[$i]->[$j] =  "CLOSE";
+        }
+    }
+  } else {
+    $countnotresolve++;
+    $ip[$i] = 9;
+    $portStat[$i]->[0] =  "CLOSE";
+    $portStat[$i]->[1] =  "CLOSE";
+    $portStat[$i]->[2] =  "CLOSE";
+  }
+
+}
+
+print "\n------------------------------------------------------------------------------------------\n", RESET;
+print BOLD, "\tIP\t\tHOST\t\tSTAT\t";
+
+for (my $i = 0; $i < @ports; $i++){
+  print  "$ports[$i]\t", RESET;
+}
+
+print "\n", RESET;
+  for (my $i=1; $i < $number; $i++){
+      if ($ip[$i] != 9) {
+         print "$ip[$i]\t";
+         print "$hosts[$i]\t";
+         if ($ping[$i] != "DOWN"){
+           print RED, "$ping[$i]\t", RESET;
+           $countdown++;
+         } else {
+           print GREEN, "$ping[$i]\t", RESET;
+         }
+         for (my $k=0; $k < @ports; $k++){
+             if ($portStat[$i]->[$k] eq "OPEN"){
+             print GREEN, "$portStat[$i]->[$k]\t", RESET;
+           } else {
+             print RED, "$portStat[$i]->[$k]\t", RESET;
+           }
+         }
+     print "\n", RESET;
+      }
+   }
+
+print "------------------------------------------------------------------------------------------\n";
+print "Hosts not resolve: $countnotresolve \t Hosts Down: $countdown\n";
+print "Host example: $hosts[1]\n";
+print "------------------------------------------------------------------------------------------\n";
