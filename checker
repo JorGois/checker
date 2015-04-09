@@ -30,8 +30,8 @@ use Term::ANSIColor qw(:constants);
 use Getopt::Long qw(GetOptions);
 
 #Set by default
-my $dom = "com"; ##Domain
-my $secdom = "google"; ##Defautl secudanri domain
+my $dom = "pt"; ##Domain
+my $secdom = "notexit"; ##Defautl secudanri domain
 my @ports = (22, 8080, 9101, 9001); ##Ports to check
 my $number = 6;
 my $ndigit = 2;
@@ -52,14 +52,11 @@ sub help {
   print "Usage: checker <regular name> [args]
   \t[-n num] - Number of machines
   \t[-o value] - name of domain
-  \t[-d] - Developer domain
-  \t[-p] - Production domain
   \t[-P] - Port to check
   \t[-D domain] - Name of domain
-  \t[-e num] - Number of digits ex(0): 1-10, ex(3): 0001-0010
-  \t\t\t\tDefault 2 ex(2): 001-010
-  Example: checker node -p -n 4 -D isp -o pool1 -P 53\n\n
-  \tchecker www -o google -D com -n 10 -e 0";
+  \t[-e num] - Number of digits ex(0): 1-10, ex(3): 0001-0010 - Default 2 ex(2): 001-010
+  \n\tExample: checker node -p -n 4 -D isp -o pool1 -P 53
+  \t\t checker www -o google -D com -n 10 -e 0\n\n";
 };
 
 print "Checke."; #Show progress
