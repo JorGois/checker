@@ -30,8 +30,8 @@ use Term::ANSIColor qw(:constants);
 use Getopt::Long qw(GetOptions);
 
 #Set by default
-my $dom = "pt"; ##Domain
-my $secdom = "notexit"; ##Defautl secudanri domain
+#my $dom = "pt"; ##Domain
+#my $secdom = "notexit"; ##Defautl secudanri domain
 my @ports = (22, 8080, 9101, 9001); ##Ports to check
 my $start_number = 1;
 my $number = 6;
@@ -94,7 +94,7 @@ for (my $i = 0; $i < $number ; $i++) {
 
   $hosts[$i] = $subdom . $digit . "$tmpnumber.$secdom.$dom";
 
-  print "\t$hosts[$i] \n";
+  #print "\t$hosts[$i] \n";
   print "."; ##Show progress
 
   $ping[$i] = "UP";
