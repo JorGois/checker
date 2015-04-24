@@ -33,6 +33,7 @@ use Getopt::Long qw(GetOptions);
 my $dom = "pt"; ##Domain
 my $secdom = "notexit"; ##Defautl secudanri domain
 my @ports = (22, 8080, 9101, 9001); ##Ports to check
+my $start_number = 1;
 my $number = 6;
 my $ndigit = 2;
 
@@ -47,15 +48,16 @@ my @ip;
 my @hosts;
 my @portStat = ($ssh,$http,$nineport);
 
-
+print $number;
 sub help {
   print "Usage: checker <regular name> [args]
   \t[-n num] - Number of machines
+  \t[-s value] - Number start name
   \t[-o value] - name of domain
   \t[-P] - Port to check
   \t[-D domain] - Name of domain
   \t[-e num] - Number of digits ex(0): 1-10, ex(3): 0001-0010 - Default 2 ex(2): 001-010
-  \n\tExample: checker node -p -n 4 -D isp -o pool1 -P 53
+  \n\tExample: checker node -p -s 10 -n 4 -D isp -o pool1 -P 53
   \t\t checker www -o google -D com -n 10 -e 0\n\n";
 };
 
@@ -71,6 +73,7 @@ print "Checke."; #Show progress
     'from|n=s' => \$number,
     'e=s' => \$ndigit,
     'o=s' => \$secdom,
+    's=s' => \$start_number,
     'h' => sub {help; exit 0;},
     'P=s' => \$tmpport,
     'D=s' => \$dom,
@@ -86,9 +89,12 @@ print "Checke."; #Show progress
     $digit = $digit."0";
   }
 
-for (my $i=1; $i < $number ; $i++) {
-  $hosts[$i] = $subdom . $digit . "$i.$secdom.$dom";
+  my $tmpnumber = $start_number;
+for (my $i = 0; $i < $number ; $i++) {
 
+  $hosts[$i] = $subdom . $digit . "$tmpnumber.$secdom.$dom";
+
+  print "\t$hosts[$i] \n";
   print "."; ##Show progress
 
   $ping[$i] = "UP";
@@ -116,7 +122,7 @@ for (my $i=1; $i < $number ; $i++) {
     $portStat[$i]->[1] =  "CLOSE";
     $portStat[$i]->[2] =  "CLOSE";
   }
-
+  $tmpnumber++;
 }
 
 print "\n------------------------------------------------------------------------------------------\n", RESET;
