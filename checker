@@ -1,26 +1,28 @@
 #!/usr/bin/perl
 #
 # author: Jorge Góis
-# version: 0.1
+# version: 0.3
 # description: This will make a resume of list of nodes. You can insert
 # the generique name, sub domain, domain and a number of nodes. And I will give
 # informaction about the nodes and state.
 #
 # tests: DNS resolve, Ping, port check (22, 8080, ...)
 #
-# usage: checker <regular name> [args]
-#        [-n num] - Number of machines
-#        [-o value] - name of domain
-#        [-d] - Developer domain
-#        [-p] - Production domain
-#        [-P] - Port to check
-#        [-D domain] - Name of domain
-#        [-e num] - Number of digits ex(0): 1-10, ex(3): 0001-0010
-#                   Default 2 ex(2): 001-010
+#    [-P] - Port to check
+#    [-D domain] - Name of domain
+#    [-A] - Create a ansible inventory.
+#    [-n num] - Number of machines
+#    [-s value] - Number start name
+#    [-o value] - name of domain
+#    [-u] - Show host with stat 'Down'
+#    [-h] - Only host resolve
+#    [-e num] - Number of digits ex(0): 1-10, ex(3): 0001-0010 - Default 2 ex(2): 001-010
 #
 #example:
 #         checker node -p -n 4 -D isp -o pool1 -P 53\n\n
 #         checker www -o google -D com -n 10 -e 0";
+#
+#
 
 
 use Regexp::Common qw /net/;
@@ -30,12 +32,13 @@ use Term::ANSIColor qw(:constants);
 use Getopt::Long qw(GetOptions);
 
 #Set by default
-#my $dom = "pt"; ##Domain
-#my $secdom = "notexit"; ##Defautl secudanri domain
-my @ports = (22, 8080, 9101, 9001); ##Ports to check
+my $dom = "pt"; ##Domain
+my $secdom = "notexit"; ##Defautl secudanri domain
+my @ports = (22, 9101, 9001); ##Ports to check
 my $start_number = 1;
 my $number = 6;
 my $ndigit = 2;
+my $groups = $number;
 
 #Dont touch
 my $p = Net::Ping->new();
@@ -45,75 +48,169 @@ my $countnotresolve = 0;
 my $digit;
 my $tmpport;
 my @ip;
+my $ansible_file;
 my @hosts;
-my @portStat = ($ssh,$http,$nineport);
+my @portStat = ($hostname,$http,$nineport);
+my $ansible_file;
+my $showup;
+my $hostname;
+my $debug;
 
-print $number;
+
+#print $number;
 sub help {
   print "Usage: checker <regular name> [args]
+  \t[-P] - Port to check
+  \t[-D domain] - Name of domain
+  \t[-A] - Create a ansible inventory.
   \t[-n num] - Number of machines
   \t[-s value] - Number start name
   \t[-o value] - name of domain
-  \t[-P] - Port to check
-  \t[-D domain] - Name of domain
+  \t[-u] - Show host with stat 'Down'
+  \t[-h] - Only host resolve
   \t[-e num] - Number of digits ex(0): 1-10, ex(3): 0001-0010 - Default 2 ex(2): 001-010
   \n\tExample: checker node -p -s 10 -n 4 -D isp -o pool1 -P 53
   \t\t checker www -o google -D com -n 10 -e 0\n\n";
 };
 
-print "Checke."; #Show progress
+# Create a ansible file
+sub ansible {
+  $ansible_file = 'inventory_' . $subdom;
 
-  if ($ARGV[0] eq "") {
-    help;
-    exit 1;
+  if (-f $ansible_file) {
+    print "\n[Error] File $ansible_file already exists, pls remove."
   } else {
-    $subdom = $ARGV[0];
+    open(my $fh, '>>', $ansible_file) or die "[Error] Could not open file '$ansible_file' $!";
 
-    GetOptions(
-    'from|n=s' => \$number,
-    'e=s' => \$ndigit,
-    'o=s' => \$secdom,
-    's=s' => \$start_number,
-    'h' => sub {help; exit 0;},
-    'P=s' => \$tmpport,
-    'D=s' => \$dom,
-    ) or die (help);
+    say $fh "[$subdom]";
 
+    for (my $i=1; $i <= $number; $i++){
+      if ($ping[$i] ne "DOWN"){
+        say $fh "$hosts[$i]";
+      }
+
+    }
+    print "\n[Info] File $ansible_file create";
   }
 
-  if ($tmpport != ""){
-    push @ports, $tmpport;
+};
+
+# Print output
+sub output {
+
+  print "\n------------------------------------------------------------------------------------------\n", RESET;
+  print BOLD, "\tIP\t\tHOST\t\tSTAT\t";
+
+  if (!$hostname){
+    for (my $i = 0; $i < @ports; $i++){
+      print  "$ports[$i]\t", RESET;
+    }
+  }
+  for (my $i=1; $i <= $number; $i++){
+    if ($ip[$i] != 9 ) {
+      if ($ping[$i] eq "DOWN" && $showup){
+        print "\n$ip[$i]\t";
+        print "$hosts[$i]\t";
+        print RED, "$ping[$i]\t", RESET;
+        $countdown++;
+      } elsif ($ping[$i] ne "DOWN") {
+        print "\n$ip[$i]\t";
+        print "$hosts[$i]\t";
+        print GREEN, "$ping[$i]\t", RESET;
+      }
+      if (!$hostname){
+        for (my $k=0; $k < @ports; $k++){
+          if ($portStat[$i]->[$k] eq "OPEN"){
+            print GREEN, "$portStat[$i]->[$k]\t", RESET;
+          } elsif ($portStat[$i]->[$k] eq "CLOSE") {
+            print RED, "$portStat[$i]->[$k]\t", RESET;
+          } elsif ($showup || $hostname)
+          {
+            print " -\t";
+          }
+        }
+      }
+    }
   }
 
-  for (my $l = 0; $l < $ndigit; $l++){
-    $digit = $digit."0";
+  print "\n------------------------------------------------------------------------------------------\n";
+  print "Hosts not resolve: $countnotresolve \t Hosts Down: $countdown \t Host example: $hosts[1]";
+
+};
+
+
+print "Checke"; #Show progress
+
+if ($ARGV[0] eq "") {
+  help;
+  exit 1;
+} else {
+  $subdom = $ARGV[0];
+
+  GetOptions(
+  'from|n=s' => \$number,
+  'e=s' => \$ndigit,
+  'o=s' => \$secdom,
+  's=s' => \$start_number,
+  'help' => sub {help; exit 0;},
+  'P=s' => \$tmpport,
+  'D=s' => \$dom,
+  'v' => sub { $debug = 1;},
+  'g=s' => \$groups,
+  'A' => sub { $ansible_file = 1;},
+  'u' => sub { $showup = 1;},
+  'h' => sub { $hostname = 1;},
+  'uh' => sub { $hostname = 1; $showup = 1;},
+  'uhA' => sub { $hostname = 1; $showup = 1; $ansible_file = 1;},
+  ) or die (help);
+
+}
+
+if ($tmpport != ""){
+  push @ports, $tmpport;
+}
+
+
+my $tmpnumber = $start_number;
+
+for (my $i = 1; $i <= $number ; $i++) {
+
+  if ($tmpnumber > 9){
+    $hosts[$i] = $subdom . "0" . "$tmpnumber.$secdom.$dom";
+  } elsif ($tmpnumber > 99){
+    $hosts[$i] = $subdom . "$tmpnumber.$secdom.$dom";
+  } else {
+    $hosts[$i] = $subdom . "00" . "$tmpnumber.$secdom.$dom";
   }
 
-  my $tmpnumber = $start_number;
-for (my $i = 0; $i < $number ; $i++) {
+  if (!($p->ping($hosts[$i], 2)))
+  {
+    if ($hostname){
+      $ping[$i] = "ND"
+    } else {
+      $ping[$i] = "DOWN";
+    }
 
-  $hosts[$i] = $subdom . $digit . "$tmpnumber.$secdom.$dom";
-
-  #print "\t$hosts[$i] \n";
-  print "."; ##Show progress
-
-  $ping[$i] = "UP";
-  if (!($p->ping($hosts[$i], 2))){
-    #print "up";
-    $ping[$i] = "DOWN";
+  } else {
+    $ping[$i] = "UP";
   }
+  print "[INFO] IP: ".$hosts[$i] . " Ping: ".$ping[$i]."\n" if $debug;
+
   $ex = qx(host $hosts[$i]);
-
   if ($ex =~ /($RE{net}{IPv4})/g) {
     $ip[$i] = $1;
-    for (my $j=0; $j < @ports; $j++){
-      $socket = IO::Socket::INET->new(PeerAddr => $ip[$i] , PeerPort => $ports[$j] , Proto => 'tcp' , Timeout => 1);
-      print "."; #Show progress
+    print "[INFO] ".$ex if $debug;
+    if ($ping[$i] eq "UP"){
+      for (my $j=0; $j < @ports; $j++){
+        $socket = IO::Socket::INET->new(PeerAddr => $ip[$i] , PeerPort => $ports[$j] , Proto => 'tcp' , Timeout => 1);
         if( $socket ){
           $portStat[$i]->[$j] = "OPEN";
+          print "[INFO] IP: ".$ip[$i] . " Port: ".$ports[$j]." -> OPEN\n" if $debug;
         } else {
           $portStat[$i]->[$j] =  "CLOSE";
+          print "[INFO] IP: ".$ip[$i] . " Port: ".$ports[$j]." -> CLOSE\n" if $debug;
         }
+      }
     }
   } else {
     $countnotresolve++;
@@ -123,38 +220,13 @@ for (my $i = 0; $i < $number ; $i++) {
     $portStat[$i]->[2] =  "CLOSE";
   }
   $tmpnumber++;
+
 }
 
-print "\n------------------------------------------------------------------------------------------\n", RESET;
-print BOLD, "\tIP\t\tHOST\t\tSTAT\t";
+output();
 
-for (my $i = 0; $i < @ports; $i++){
-  print  "$ports[$i]\t", RESET;
+if ($ansible_file){
+  ansible();
 }
 
-print "\n", RESET;
-  for (my $i=1; $i < $number; $i++){
-      if ($ip[$i] != 9) {
-         print "$ip[$i]\t";
-         print "$hosts[$i]\t";
-         if ($ping[$i] != "DOWN"){
-           print RED, "$ping[$i]\t", RESET;
-           $countdown++;
-         } else {
-           print GREEN, "$ping[$i]\t", RESET;
-         }
-         for (my $k=0; $k < @ports; $k++){
-             if ($portStat[$i]->[$k] eq "OPEN"){
-             print GREEN, "$portStat[$i]->[$k]\t", RESET;
-           } else {
-             print RED, "$portStat[$i]->[$k]\t", RESET;
-           }
-         }
-     print "\n", RESET;
-      }
-   }
-
-print "------------------------------------------------------------------------------------------\n";
-print "Hosts not resolve: $countnotresolve \t Hosts Down: $countdown\n";
-print "Host example: $hosts[1]\n";
-print "------------------------------------------------------------------------------------------\n";
+print "\n------------------------------------------------------------------------------------------\n";
